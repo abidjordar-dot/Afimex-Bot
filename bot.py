@@ -1,6 +1,26 @@
+import os
 import logging
+from threading import Thread
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
+
+# --- Dummy Web Server for Render Port Check ---
+app_web = Flask('')
+
+@app_web.route('/')
+def home():
+    return "Afimex Bot is Alive!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app_web.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run_web)
+    t.daemon = True
+    t.start()
+# ----------------------------------------------
 
 # Bot Token & Channels
 TOKEN = "8817520853:AAGXapOzgjkK0iOA1iKG7k_TjKy3aBpEBB8"
@@ -25,13 +45,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     first_name = update.effective_user.first_name
     
-    # Check Channel Membership
     is_joined = await check_joined(user_id, context)
     
     if not is_joined:
         keyboard = [
-            [InlineKeyboardButton("📢 Main Channel Join", url=f"https://t.me/Afimex001")],
-            [InlineKeyboardButton("💳 Payment Proof Channel", url=f"https://t.me/Afimexpayment")],
+            [InlineKeyboardButton("📢 Main Channel Join", url="https://t.me/Afimex001")],
+            [InlineKeyboardButton("💳 Payment Proof Channel", url="https://t.me/Afimexpayment")],
             [InlineKeyboardButton("✅ Checked / Verified", callback_data="check_join")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -76,10 +95,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("❌ আপনি এখনো আমাদের চ্যানেলে জয়েন করেননি! দয়া করে জয়েন করে 'Checked' বাটনে চাপুন।")
 
-# Main Function
 if __name__ == '__main__':
-    app = ApplicationBuilder().token(TOKEN).build()
+    # Start Web Server Thread
+    keep_alive()
     
+    # Start Telegram Bot
+    app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CallbackQueryHandler(button_handler))
     
